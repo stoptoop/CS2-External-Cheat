@@ -14,8 +14,8 @@
 
 <hr>
 
-- ESP (Box, Tracers, Skeletons, Health Bar) with custom colors  
-- AimBot  
+- ESP (Box, Tracers, Skeletons, Health Bar) with custom colors
+- AimBot (smooth settings)
 - Anti-flash  
 - Custom FOV
 
