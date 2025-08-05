@@ -11,9 +11,14 @@ import requests
 from random import uniform
 import keyboard
 import math
+import configparser
 
 WINDOW_WIDTH = 1920
 WINDOW_HEIGHT = 1080
+
+
+
+
 
 offsets = requests.get('https://raw.githubusercontent.com/a2x/cs2-dumper/main/output/offsets.json').json()
 client_dll = requests.get('https://raw.githubusercontent.com/a2x/cs2-dumper/main/output/client_dll.json').json()
@@ -43,13 +48,16 @@ m_bDidSmokeEffect = client_dll['client.dll']['classes']['C_SmokeGrenadeProjectil
 
 
 
+
+screen_resolution = "None"  # или любой другой ключ из словаря
+spray_control = False
 show_hp_bar = True
 show_armor_bar = True
-custom_font = None  
+custom_font = None
 aim_targets = [] 
 aim_key = 0x05
-show_health_text = True
-show_armor_text = True
+show_health_text = False
+show_armor_text = False
 fov_color = [1.0, 1.0, 1.0]
 tracer_color = [1.0, 1.0, 1.0]
 skeleton_color = [1.0, 1.0, 1.0]
@@ -61,31 +69,43 @@ show_menu = True
 anti_flash = False
 custom_fov = False
 custom_fov_resolution = 90
-show_logo = True
+show_logo = False
 show_aimbot = True
 aimbot_smooth = 2.0 
 aimbot_fov = 190 
 
+
+
+
+
 while True:
     time.sleep(1)
     try:
-        pm = pymem.Pymem("cs2.exe")
-        client = pymem.process.module_from_name(pm.process_handle, "client.dll").lpBaseOfDll
-        break
+        try:
+            pm = pymem.Pymem("cs2.exe")
+            client = pymem.process.module_from_name(pm.process_handle, "client.dll").lpBaseOfDll
+            break
+        except pymem.exception.ProcessNotFound as e:
+            print(f"Error connecting to cs2.exe: {e}\n\n  >  Please start CS2 and try again.")
+            time.sleep(2)
     except:
         pass
     
     
-    
-def version_control():
-    url = "https://api.github.com/repos/stoptoop/CS2-External-Cheat/releases"
-    response = requests.get(url)
-    if response.status_code == 200:
-        releases = response.json()
-        if releases:
-            latest = releases[0]
-            return latest["tag_name"]
-version = version_control()    
+try:
+    def version_control():
+        url = "https://api.github.com/repos/stoptoop/CS2-External-Cheat/releases"
+        response = requests.get(url)
+        if response.status_code == 200:
+            releases = response.json()
+            if releases:
+                latest = releases[0]
+                return latest["tag_name"]
+    version = version_control()    
+except:
+    pass
+
+
 time.sleep(1)
 os.system("cls")
 pm = pymem.Pymem("cs2.exe")
@@ -273,23 +293,26 @@ def esp(draw_list):
                     imgui.pop_font()
             except Exception as e:
                 print(f"Error drawing armor bar: {e}")
-                pass
-            try:
-                player_name_bytes = pm.read_bytes(entity_controller + 0x660, 128)
-                player_name = player_name_bytes.split(b'\x00', 1)[0].decode('utf-8', errors='ignore')
-                text_size = imgui.calc_text_size(player_name)
-                text_x = leg_pos[0] - (text_size[0] / 2)
-                if custom_font is not None:
-                    imgui.push_font(custom_font)
-                draw_list.add_text(
-                    text_x, leg_pos[1] + 5, 
-                    imgui.get_color_u32_rgba(1.0, 1.0, 1.0, 1.0),
-                    player_name
-                )
-                if custom_font is not None:
-                    imgui.pop_font()
-            except:
-                pass
+                pass   
+            
+            # outdated offset, may need to adjust
+            
+            # try:
+            #     player_name_bytes = pm.read_bytes(entity_controller + 0x660, 128)
+            #     player_name = player_name_bytes.split(b'\x00', 1)[0].decode('utf-8', errors='ignore')
+            #     text_size = imgui.calc_text_size(player_name)
+            #     text_x = leg_pos[0] - (text_size[0] / 2)
+            #     if custom_font is not None:
+            #         imgui.push_font(custom_font)
+            #     draw_list.add_text(
+            #         text_x, leg_pos[1] + 5, 
+            #         imgui.get_color_u32_rgba(1.0, 1.0, 1.0, 1.0),
+            #         player_name
+            #     )
+            #     if custom_font is not None:
+            #         imgui.pop_font()
+            # except:
+            #     pass
             try:
                 weapon_pointer = pm.read_longlong(entity_pawn + m_pClippingWeapon)
                 weapon_index = pm.read_int(weapon_pointer + m_AttributeManager + m_Item + m_iItemDefinitionIndex)
@@ -331,6 +354,7 @@ def logo(draw_list):
         pass
 
 
+
 def aimbot(draw_list):
     screen_center_x = WINDOW_WIDTH / 2
     screen_center_y = WINDOW_HEIGHT / 2
@@ -367,6 +391,8 @@ def aimbot(draw_list):
             smooth_dx = int(math.copysign(1, dx)) if dx != 0 else 0
             smooth_dy = int(math.copysign(1, dy)) if dy != 0 else 0
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, smooth_dx, smooth_dy, 0, 0)
+
+
 
 def draw_skeleton(draw_list, view_matrix, entity_pawn):
     game_scene = pm.read_longlong(entity_pawn + m_pGameSceneNode)
@@ -475,10 +501,18 @@ def draw_skeleton(draw_list, view_matrix, entity_pawn):
             SKELETON_COLOR, 1.5
         )
 
-def flash():
-    local_player = pm.read_longlong(client + dwLocalPlayerPawn)
-    pm.write_float(local_player + m_flFlashMaxAlpha,0.0)
 
+
+def flash():
+    try:
+        local_player = pm.read_longlong(client + dwLocalPlayerPawn)
+        pm.write_float(local_player + m_flFlashMaxAlpha,0.0)
+    except pymem.exception.MemoryReadError as e:
+        print("Error Anti Flash.")
+        time.sleep(0.1)
+    except Exception as e:
+        print(f"Error in flash function: {e}")
+        pass
 
 
 
@@ -488,21 +522,47 @@ def fov(custom_fov_resolution):
         local_player_controller = pm.read_longlong(client + dwLocalPlayerController)
         pm.write_int(local_player_controller + m_iDesiredFOV, custom_fov_resolution)
     except Exception as e:
+        print(f"Error setting FOV: {e}")
         pass
+
+
+
+spray_index = 0
+last_spray_time = 0
+spray_delay = 0.1 
+def simple_spray_control():
+    global spray_index, last_spray_time
+    if not spray_control:
+        spray_index = 0
+        return
+    if win32api.GetAsyncKeyState(win32con.VK_LBUTTON) < 0:
+        now = time.time()
+        if now - last_spray_time >= spray_delay:
+            if spray_index < len(ak47_pattern_xy):
+                dx, dy = ak47_pattern_xy[spray_index]
+                win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy, 0, 0)
+                spray_index += 1
+                last_spray_time = now
+            else:
+                spray_index = 0
+    else:
+        spray_index = 0
 
 
 
 
 def draw_menu():
     global show_esp, show_aimbot, aimbot_fov, custom_font, esp_box_color, aimbot_smooth, show_hp_bar
-    global anti_flash, custom_fov, show_logo, custom_fov_resolution, show_skeleton, fov_color
+    global anti_flash, custom_fov, show_logo, custom_fov_resolution, show_skeleton, fov_color, spray_control
     global show_tracer, skeleton_color, show_armor_text, show_health_text, tracer_color, aim_key, show_armor_bar
+    global screen_resolution, WINDOW_WIDTH, WINDOW_HEIGHT
+
 
     if menu_font is not None:
         imgui.push_font(menu_font)
         
                          #      w    h
-    imgui.set_next_window_size(410, 465)
+    imgui.set_next_window_size(410, 495)
     imgui.set_next_window_position(10, 10)
     imgui.begin("Lensor External", flags=imgui.WINDOW_NO_RESIZE | imgui.WINDOW_NO_COLLAPSE)
 
@@ -523,8 +583,6 @@ def draw_menu():
             _, tracer_color = imgui.color_edit3("##tracer_color", *tracer_color)
             imgui.unindent(11)
             imgui.separator()
-            
-            
             _, show_skeleton = imgui.checkbox("Skeleton", show_skeleton)
             imgui.indent(11)
             imgui.text("Skeleton Color")
@@ -534,6 +592,16 @@ def draw_menu():
             _, show_logo = imgui.checkbox("Show Logo", show_logo)
             _, show_health_text = imgui.checkbox("Health Text", show_health_text)
             _, show_armor_text = imgui.checkbox("Armor Text", show_armor_text)
+            imgui.text("Screen Resolution")
+            if imgui.begin_combo(" ", screen_resolution):
+                for res_name, (w, h) in screen_resolutions.items():
+                    is_selected = (screen_resolution == res_name)
+                    if imgui.selectable(res_name, is_selected)[0]:
+                        screen_resolution = res_name
+                        WINDOW_WIDTH, WINDOW_HEIGHT = w, h
+                    if is_selected:
+                        imgui.set_item_default_focus()
+                imgui.end_combo()
             imgui.end_tab_item()
 
         if imgui.begin_tab_item("COMBAT")[0]:
@@ -552,6 +620,7 @@ def draw_menu():
             imgui.text("Aimbot fov color")
             _, fov_color = imgui.color_edit3("##aim_bot_fov_color", *fov_color)
             imgui.unindent(11)
+            _, spray_control = imgui.checkbox("Simple spray control", spray_control)
             imgui.separator()
             _, anti_flash = imgui.checkbox("Anti Flash", anti_flash)
             _, custom_fov = imgui.checkbox("Custom Fov", custom_fov)
@@ -566,8 +635,6 @@ def draw_menu():
     imgui.end()
     if menu_font is not None:
         imgui.pop_font()
-
-
 
 
 
@@ -665,6 +732,8 @@ def main():
             fov(custom_fov_resolution)
         if show_logo:
             logo(draw_list)
+        if spray_control:
+            simple_spray_control()
             
         esp(draw_list)
         imgui.end()
@@ -676,6 +745,9 @@ def main():
         glfw.swap_buffers(window)
     impl.shutdown()
     glfw.terminate()
+
+
+
 
 def get_weapon_name_by_index(index):
     weapon_names = {
@@ -754,6 +826,52 @@ key_names = {
 }
 
 
+screen_resolutions = {
+    "1080x1080": (1080, 1080),
+    "1024x762": (1024, 762),
+    "1280x960": (1280, 960),
+    "1280x720": (1280, 720),
+    "1280x1024": (1280, 1024),
+    "1440x1080": (1440, 1080),
+    "1680x1050": (1680, 1050),
+    "1920x1080": (1920, 1080),
+}
+
+ak47_pattern_xy = [
+    (-4, 7),
+    (4, 19),
+    (-3, 29),
+    (-1, 31),
+    (13, 31),
+    (8, 28),
+    (13, 21),
+    (-17, 12),
+    (-42, -3),
+    (-21, 2),
+    (12, 11),
+    (-15, 7),
+    (-26, -8),
+    (-3, 4),
+    (40, 1),
+    (19, 7),
+    (14, 10),
+    (27, 0),
+    (33, -10),
+    (-21, -2),
+    (7, 3),
+    (-7, 9),
+    (-8, 4),
+    (19, -3),
+    (5, 6),
+    (-20, -1),
+    (-33, -4),
+    (-45, -21),
+    (-14, 1)
+]
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except pymem.exception.MemoryReadError as e:
+        print("Erro reading memory. Make sure CS2 is running and try again.")
+        
