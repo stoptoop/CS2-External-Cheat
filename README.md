@@ -18,6 +18,7 @@
 - AimBot (smooth settings)
 - Anti-flash  
 - Custom FOV
+- Screen Resolution
 
 <hr>
 
